@@ -10,7 +10,6 @@ def encrypt(data):
     key = Fernet.generate_key()         # base64-encoded 32-byte key
     f = Fernet(key)
     token = f.encrypt(data)
-    print(key)
 
     return (key, token)
 
