@@ -124,9 +124,9 @@ class SendMessageResource:
         receivers.append(sender)
 
         # Default: 1 day
-        thresh_time = metadata.get("thresh_time", 86400)
+        thresh_time = metadata.get("thresh_hours", 86400)
         valid_till = (datetime.datetime.now() +
-                      datetime.timedelta(seconds=thresh_time))
+                      datetime.timedelta(hours=thresh_time))
 
         thresh_number = min(len(receivers),
                             metadata.get("thresh_number", 100))

@@ -62,9 +62,9 @@ The form has 2 parts:
 
     1. *receiver_ids*: List of User IDs of the receivers.
     2. *sender_id*: User IDs of the sender.
-    3. *thresh_num_of_users*: The minimum number of subkeys required to decrypt
+    3. *thresh_number*: The minimum number of subkeys required to decrypt
        the encrypted image.
-    4. *thresh_time*: The time frame within which the threshold number of
+    4. *thresh_hours*: The number of hours within which the threshold number of
        subkeys should be available.
 
 2. The image file.
@@ -74,8 +74,8 @@ Example:
     metadata={
                "receiver_ids": [2, 3, 4, 5, 6, 7, 8, 9, 10],
                "sender_id": 1,
-               "thresh_num_of_users": 5,
-               "thresh_time": 3600
+               "thresh_number": 5,
+               "thresh_hours": 1
              }
     image=file
 
