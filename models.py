@@ -1,3 +1,4 @@
+import datetime
 from enum import IntEnum
 import peewee as pw
 
@@ -35,7 +36,7 @@ class Message(BaseModel):
     filename = pw.CharField()
     is_encrypted = pw.BooleanField(default=True)
     threshold_number = pw.IntegerField()
-    valid_till = pw.DateTimeField()
+    valid_till = pw.DateTimeField(default=datetime.datetime.now)
 
 
 class MessageToReceiver(BaseModel):
