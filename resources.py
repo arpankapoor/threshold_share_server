@@ -1,5 +1,4 @@
 import base64
-import datetime
 import enc
 import json
 import os
@@ -16,12 +15,10 @@ class UsersResource:
         [
             {
                 "id": 1,
-                "mobilenumber": "+1234567890",
                 "name": "abcd"
             },
             {
                 "id": 2,
-                "mobilenumber": "+9876543210",
                 "name": "dcba"
             }
         ]
@@ -40,7 +37,6 @@ class UserRegisterationResource:
 
         {
             "name": "ABCD"
-            "mobilenumber": "+1234567890"
         }
 
     Output JSON:
@@ -48,14 +44,12 @@ class UserRegisterationResource:
         {
             "id": 1,
             "name": "ABCD",
-            "mobilenumber": "+1234567890"
         }
 
     If any error occurs, set id = -1
     """
 
     def on_post(self, req, resp):
-        # TODO: check if mobilenumber == "" and do appropriate stuff
         try:
             user_dict = json.loads(req.stream.read().decode())
         except ValueError:
@@ -63,14 +57,7 @@ class UserRegisterationResource:
             resp.body = json.dumps(ps.model_to_dict(user))
         else:
             # Don't recreate if already existing...
-            user, created = md.User.get_or_create(
-                    mobilenumber=user_dict.get("mobilenumber", ""),
-                    defaults={"name": user_dict.get("name", "")})
-
-            # Update the name
-            if not created:
-                user.name = user_dict.get("name", user.name)
-                user.save()
+            user = md.User.create(name=user_dict.get("name", ""))
 
             resp.body = json.dumps(ps.model_to_dict(user))
 

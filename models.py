@@ -28,7 +28,6 @@ class BaseModel(pw.Model):
 
 class User(BaseModel):
     name = pw.CharField(max_length=100)
-    mobilenumber = pw.CharField(max_length=30, unique=True)
 
 
 class Message(BaseModel):

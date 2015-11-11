@@ -47,12 +47,10 @@ Example:
     [
       {
         "id": 1,
-        "mobilenumber": "+1234567890",
         "name": "abcd"
       },
       {
         "id": 2,
-        "mobilenumber": "+9876543210",
         "name": "dcba"
       }
     ]
@@ -60,13 +58,12 @@ Example:
 ### `register_user`
 
 POST request.
-*Input*: Name and Mobile number.
-*Output*: UserId, Name and MobileNumber
+*Input*: Name.
+*Output*: UserId and Name.
 
 Example Input:
 
     {
-      "mobilenumber": "+1234567890",
       "name": "abcd"
     }
 
@@ -74,7 +71,6 @@ Output:
 
     {
       "id": 123,
-      "mobilenumber": "+1234567890",
       "name": "abcd"
     }
 
@@ -99,7 +95,7 @@ Example:
             "image": "23y83y489yjkjfhhuhhfFDJKFKH"
         }
 
-# Database Setup
+## Database Setup
 
 1. Install MariaDB.
 
