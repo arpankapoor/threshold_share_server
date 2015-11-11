@@ -31,15 +31,10 @@ class User(BaseModel):
     mobilenumber = pw.CharField(max_length=30, unique=True)
 
 
-class Image(BaseModel):
-    img_data = pw.BlobField()
-    img_type = pw.CharField(max_length=10)
-    is_encrypted = pw.BooleanField(default=False)
-
-
 class Message(BaseModel):
     sender = pw.ForeignKeyField(User)
-    image = pw.ForeignKeyField(Image)
+    filename = pw.CharField()
+    is_encrypted = pw.BooleanField(default=True)
     threshold_number = pw.IntegerField()
     valid_till = pw.DateTimeField()
 
