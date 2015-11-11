@@ -1,8 +1,8 @@
-import cgi
+import base64
 import datetime
 import enc
-import imghdr
 import json
+import os
 import models as md
 import playhouse.shortcuts as ps
 
@@ -79,40 +79,37 @@ class SendMessageResource:
     """
     Send an image to a group of users.
 
-    Input: A POST request with Content-Type multipart/form-data.
-    The form has 2 key value pairs:
-
-    1. Metadata with the following fields in JSON:
+    Input: A POST request with JSON Object having following fields:
         1. receiver_ids: List of User IDs of the receivers.
         2. sender_id: User IDs of the sender.
-        3. thresh_number: The minimum number of subkeys required to
-           decrypt the encrypted image.
-        4. thresh_time: The time frame within which the threshold number of
-           subkeys should be available.
-    2. The image file.
+        3. threshold_value: The minimum number of subkeys required to
+            decrypt the encrypted image.
+        4. filename: image filename.
+        5. image: base64 encoded image.
 
     Example:
 
-        metadata={
-                    "receiver_ids": [2, 3, 4, 5, 6, 7, 8, 9, 10],
-                    "sender_id": 1,
-                    "thresh_number": 5,
-                    "thresh_time": 3600
-                 }
-        image=file
+        {
+            "receiver_ids": [2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "sender_id": 1,
+            "threshold_value": 5,
+            "filename": "bankkey.jpg",
+            "image": "23y83y489yjkjfhhuhhfFDJKFKH"
+        }
     """
 
-    def decode_metadata(self, metadata_json):
+    def decode_metadata(self, jsonStr):
         """
         Return a 4 tuple:
             receivers -> list of User md with ids from "receiver_ids"
             sender -> sending User
-            thresh_number -> int
-            valid_till -> datetime object = thresh_time + current_time
+            thresholdValue -> int
+            filename -> string
+            image -> bytes
         """
 
         # TODO: Error checks!!
-        metadata = json.loads(metadata_json)
+        metadata = json.loads(jsonStr)
 
         sender = md.User.get(md.User.id == metadata.get("sender_id", -1))
 
@@ -123,44 +120,40 @@ class SendMessageResource:
         # The sender is an implicit receiver
         receivers.append(sender)
 
-        # Default: 1 day
-        thresh_time = metadata.get("thresh_hours", 86400)
-        valid_till = (datetime.datetime.now() +
-                      datetime.timedelta(hours=thresh_time))
-
         thresh_number = min(len(receivers),
-                            metadata.get("thresh_number", 100))
+                            metadata.get("threshold_value", 100))
 
-        return (receivers, sender, thresh_number, valid_till)
+        filename = metadata.get("filename", "NO_NAME.jpg")
+
+        image = metadata.get("image")
+        image = base64.b64decode(image)
+
+        return (receivers, sender, thresh_number, filename, image)
+
+    def save_image(self, img_data, filename):
+        images_directory = "./images/"
+
+        os.makedirs(images_directory, exist_ok=True)
+
+        path = os.path.join(images_directory + filename)
+        f = open(path, "wb")
+        f.write(img_data)
 
     def on_post(self, req, resp):
-        if "multipart/form-data" not in req.content_type:
-            return
-
-        try:
-            form = cgi.FieldStorage(fp=req.stream, environ=req.env)
-        except:
-            return
-
-        metadata_json = form.getfirst("metadata")
-        img_data = form.getfirst("image")
-
-        img_type = imghdr.what("", h=img_data)
+        json_str = req.stream.read().decode()
 
         # Decode metadata
-        rcvrs, sndr, thrsh_no, valid_till = self.decode_metadata(metadata_json)
+        rcvrs, sndr, thrsh_no, filename, img = self.decode_metadata(json_str)
 
         # Encrypt the image and split the key using Shamir's secret sharing.
         # The image can be decrypted with the threshold number of subkeys.
-        keys, encrypted_img = enc.encrypt_and_split(img_data, thrsh_no,
-                                                    len(rcvrs))
+        keys, encrypted_img = enc.encrypt_and_split(img, thrsh_no, len(rcvrs))
 
         # DB blob
-        img = md.Image.create(img_data=encrypted_img, img_type=img_type,
-                              is_encrypted=True)
-
         msg = md.Message.create(sender=sndr, threshold_number=thrsh_no,
-                                image=img, valid_till=valid_till)
+                                filename=filename)
+
+        self.save_image(encrypted_img, str(msg.id))
 
         # Create a MessageToReceiver object for each of the receivers
         for key, receiver in zip(keys, rcvrs):

@@ -55,31 +55,24 @@ Output:
 
 ### `send_message`
 
-*Input*: A POST request with *Content-Type* `multipart/form-data`.
-The form has 2 parts:
+*Input*: A POST request with JSON Object having following fields:
 
-1. Metadata with the following fields in JSON:
-
-    1. *receiver_ids*: List of User IDs of the receivers.
-    2. *sender_id*: User IDs of the sender.
-    3. *thresh_number*: The minimum number of subkeys required to decrypt
-       the encrypted image.
-    4. *thresh_hours*: The number of hours within which the threshold number of
-       subkeys should be available.
-
-2. The image file.
+1. *receiver_ids*: List of User IDs of the receivers.
+2. *sender_id*: User IDs of the sender.
+3. *threshold_value*: The minimum number of subkeys required to decrypt the
+   encrypted image.
+4. *filename*: image filename.
+5. *image*: base64 encoded image.
 
 Example:
 
-    metadata={
-               "receiver_ids": [2, 3, 4, 5, 6, 7, 8, 9, 10],
-               "sender_id": 1,
-               "thresh_number": 5,
-               "thresh_hours": 1
-             }
-    image=file
-
-
+        {
+            "receiver_ids": [2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "sender_id": 1,
+            "threshold_value": 5,
+            "filename": "bankkey.jpg",
+            "image": "23y83y489yjkjfhhuhhfFDJKFKH"
+        }
 
 # Database Setup
 
