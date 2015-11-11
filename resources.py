@@ -123,8 +123,8 @@ class SendMessageResource:
         os.makedirs(images_directory, exist_ok=True)
 
         path = os.path.join(images_directory + filename)
-        f = open(path, "wb")
-        f.write(img_data)
+        with open(path, "wb") as f:
+            f.write(img_data)
 
     def on_post(self, req, resp):
         json_str = req.stream.read().decode()
