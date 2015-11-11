@@ -1,3 +1,4 @@
+import base64
 from cryptography.fernet import Fernet
 from secretsharing import PlaintextToHexSecretSharer as shamir
 
@@ -9,7 +10,7 @@ def encrypt(data):
     """
     key = Fernet.generate_key()         # base64-encoded 32-byte key
     f = Fernet(key)
-    token = f.encrypt(data)
+    token = base64.b64decode(f.encrypt(data))
 
     return (key, token)
 
