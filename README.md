@@ -9,6 +9,31 @@ number of users should log in to the application within a time frame and input
 their secret keys. The threshold number should be configured during image
 upload by the owner of the image.
 
+## Solution
+
+The server is assumed to be a trusted third party.
+The procedure is as follows:
+
+1. New users register with `register_user`.
+2. Send images to the server to be shared with a group of receivers.
+   The server encrypts the image using AES with key _K_ and deletes the
+   original This key _K_ is the split into as many subkeys as there are
+   receivers (using [Shamir's Secret Sharing Scheme][ssss]).
+3. Each receiver is sent their subkey and given an option to contribute the
+   same for decryption of the shared image.
+4. After the threshold number of subkeys are received, the original AES key
+   _K_ can be restored and used to decrypt the image.
+5. Finally the decrypted image is sent to all receivers.
+
+## Software Used
+
+- [Falcon Framework][falcon] - for the REST API.
+- [peewee][peewee] - for Object Relational Mapping.
+- [uwsgi][uwsgi] - Python WSGI server.
+- [cryptography][crypto] - for AES encryption.
+- [secretsharing][ss] - Shamir's secret sharing
+  (Installed with `pip install git+git://github.com/EaterOA/secret-sharing.git`
+  for Python3 compatibility)
 
 ## Server side API
 
@@ -110,9 +135,10 @@ Example:
 
         mysqladmin -u root -p variables | grep socket
 
-# References
 
-1. [POST metadata along with binary data in a REST service][1]
-
-[1]: http://stackoverflow.com/a/13076550/2364068
-[sss]: http://doi.acm.org/10.1145/359168.359176
+[ssss]: http://doi.acm.org/10.1145/359168.359176
+[falcon]: http://falconframework.org/
+[peewee]: https://github.com/coleifer/peewee
+[uwsgi]: https://uwsgi-docs.readthedocs.org/en/latest/
+[crypto]: https://cryptography.io/en/latest/
+[ss]: https://github.com/blockstack/secret-sharing
