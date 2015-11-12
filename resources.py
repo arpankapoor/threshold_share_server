@@ -1,4 +1,5 @@
 import base64
+import datetime
 import enc
 import falcon
 import json
@@ -6,7 +7,8 @@ import os
 import models as md
 import playhouse.shortcuts as ps
 
-images_directory = "./images/"
+IMAGES_DIRECTORY = "./images/"
+THRESHOLD_MINUTES = 10
 
 
 class UsersResource:
@@ -122,9 +124,9 @@ class SendMessageResource:
 
     def save_image(self, img_data, filename):
 
-        os.makedirs(images_directory, exist_ok=True)
+        os.makedirs(IMAGES_DIRECTORY, exist_ok=True)
 
-        path = os.path.join(images_directory + filename)
+        path = os.path.join(IMAGES_DIRECTORY + filename)
         with open(path, "wb") as f:
             f.write(img_data)
 
@@ -194,7 +196,7 @@ class GetMessagesResource:
         Return the image corresponding to a
         message as a base64 encoded string.
         """
-        path = os.path.join(images_directory + str(msg_id))
+        path = os.path.join(IMAGES_DIRECTORY + str(msg_id))
         data = None
 
         with open(path, "rb") as f:
@@ -233,6 +235,7 @@ class GetMessagesResource:
                     msg.filename, msg_to_rcvr.subkey))
 
                 # Change status to key_sent
+                msg_to_rcvr.subkey = ""
                 msg_to_rcvr.status = md.KeyStatus.sent
                 msg_to_rcvr.save()
 
@@ -241,3 +244,96 @@ class GetMessagesResource:
             resp.status = falcon.HTTP_204
         else:
             resp.body = json.dumps(resp_msgs)
+
+
+class SendKeyResource:
+    """
+    Receives a key from user
+
+    Input: A POST request with JSON Object having following fields:
+    1. sender_id: User ID of the sender
+    2. message_id: Message ID of the image
+    3. key: key of user
+
+    Example:
+
+    {
+        "sender_id": 1,
+        "message_id": 1,
+        "key": "1-nlkdnfgklndslkgnlkdnlfglkdnflk"
+    }
+    """
+
+    def decode_metadata(self, jsonStr):
+        """
+        Return a 3 tuple:
+            sender_id -> sending User
+            message_id -> Message Id
+            key -> string
+        """
+        metadata = json.loads(jsonStr)
+
+        sender = md.User.get(md.User.id == metadata.get("sender_id", -1))
+        message = md.Message.get(md.Message.id == metadata.get("message_id", -1))
+        key = metadata.get("key","")
+        return (sender, message, key)
+
+    def get_subkeys(self, message):
+        MTR = md.MessageToReceiver
+        threshold_mtr = MTR.select().where(MTR.message == message.id, MTR.status == md.KeyStatus.recvd)
+
+        subkeys = []
+        for mtr in threshold_mtr:
+            subkeys.append(mtr.subkey)
+
+        return subkeys
+
+    def get_img(self, msg_id):
+        path = os.path.join(IMAGES_DIRECTORY + str(msg_id))
+        data = None
+
+        with open(path, "rb") as f:
+            data = f.read()
+
+        return data
+
+    def save_image(self, img_data, filename):
+
+        os.makedirs(IMAGES_DIRECTORY, exist_ok=True)
+
+        path = os.path.join(IMAGES_DIRECTORY + filename)
+        with open(path, "wb") as f:
+            f.write(img_data)
+
+    def decrypt_image(self,subkeys,msg_id):
+
+        data = self.get_img(msg_id)
+        decrypted_data = enc.combine_and_decrypt(data, subkeys)
+
+        self.save_image(decrypted_data,str(msg_id))
+
+
+    def on_post(self, req, resp):
+        json_str = req.stream.read().decode()
+
+        sender, message, key = self.decode_metadata(json_str)
+        MTR = md.MessageToReceiver
+        msgtorecv = MTR.get(MTR.receiver == sender.id, MTR.message == message.id)
+
+        # Checking status is sent or not
+        if msgtorecv.status == md.KeyStatus.sent:
+            msgtorecv.status = md.KeyStatus.recvd
+            msgtorecv.subkey = key
+            msgtorecv.save()
+
+            if message.number_of_subkeys == 0:
+                message.valid_till = datetime.datetime.now() + datetime.timedelta(minutes = THRESHOLD_MINUTES)
+            elif message.number_of_subkeys == message.threshold_number-1:
+                message.is_encrypted = False
+
+                subkeys = self.get_subkeys(message)
+
+                self.decrypt_image(subkeys,message.id)
+
+            message.number_of_subkeys = message.number_of_subkeys + 1
+            message.save()
