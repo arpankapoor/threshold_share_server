@@ -36,6 +36,7 @@ class Message(BaseModel):
     filename = pw.CharField()
     is_encrypted = pw.BooleanField(default=True)
     threshold_number = pw.IntegerField()
+    number_of_subkeys = pw.IntegerField(default=0)
     valid_till = pw.DateTimeField(default=datetime.datetime.now)
 
 
