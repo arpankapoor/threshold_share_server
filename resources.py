@@ -186,7 +186,7 @@ class GetMessagesResource:
         return {
                     "message_id": msg_id,
                     "sender_id": sndr_id,
-                    "data_type": data_type,
+                    "type": data_type,
                     "filename": filename,
                     "data": data
                }
@@ -251,14 +251,14 @@ class SendKeyResource:
     Receives a key from user
 
     Input: A POST request with JSON Object having following fields:
-    1. sender_id: User ID of the sender
+    1. id: User ID
     2. message_id: Message ID of the image
     3. key: key of user
 
     Example:
 
     {
-        "sender_id": 1,
+        "id": 1,
         "message_id": 1,
         "key": "1-nlkdnfgklndslkgnlkdnlfglkdnflk"
     }
@@ -267,20 +267,22 @@ class SendKeyResource:
     def decode_metadata(self, jsonStr):
         """
         Return a 3 tuple:
-            sender_id -> sending User
+            id -> User Id
             message_id -> Message Id
             key -> string
         """
         metadata = json.loads(jsonStr)
 
-        sender = md.User.get(md.User.id == metadata.get("sender_id", -1))
-        message = md.Message.get(md.Message.id == metadata.get("message_id", -1))
-        key = metadata.get("key","")
-        return (sender, message, key)
+        user = md.User.get(md.User.id == metadata.get("id", -1))
+        message = md.Message.get(
+                md.Message.id == metadata.get("message_id", -1))
+        key = metadata.get("key", "")
+        return (user, message, key)
 
     def get_subkeys(self, message):
         MTR = md.MessageToReceiver
-        threshold_mtr = MTR.select().where(MTR.message == message.id, MTR.status == md.KeyStatus.recvd)
+        threshold_mtr = MTR.select().where(MTR.message == message.id,
+                                           MTR.status == md.KeyStatus.recvd)
 
         subkeys = []
         for mtr in threshold_mtr:
@@ -305,20 +307,19 @@ class SendKeyResource:
         with open(path, "wb") as f:
             f.write(img_data)
 
-    def decrypt_image(self,subkeys,msg_id):
+    def decrypt_image(self, subkeys, msg_id):
 
         data = self.get_img(msg_id)
         decrypted_data = enc.combine_and_decrypt(data, subkeys)
 
-        self.save_image(decrypted_data,str(msg_id))
-
+        self.save_image(decrypted_data, str(msg_id))
 
     def on_post(self, req, resp):
         json_str = req.stream.read().decode()
 
-        sender, message, key = self.decode_metadata(json_str)
+        user, message, key = self.decode_metadata(json_str)
         MTR = md.MessageToReceiver
-        msgtorecv = MTR.get(MTR.receiver == sender.id, MTR.message == message.id)
+        msgtorecv = MTR.get(MTR.receiver == user.id, MTR.message == message.id)
 
         # Checking status is sent or not
         if msgtorecv.status == md.KeyStatus.sent:
@@ -327,13 +328,13 @@ class SendKeyResource:
             msgtorecv.save()
 
             if message.number_of_subkeys == 0:
-                message.valid_till = datetime.datetime.now() + datetime.timedelta(minutes = THRESHOLD_MINUTES)
+                message.valid_till = (datetime.datetime.now() +
+                                      datetime.timedelta(
+                                          minutes=THRESHOLD_MINUTES))
             elif message.number_of_subkeys == message.threshold_number-1:
                 message.is_encrypted = False
-
                 subkeys = self.get_subkeys(message)
-
-                self.decrypt_image(subkeys,message.id)
+                self.decrypt_image(subkeys, message.id)
 
             message.number_of_subkeys = message.number_of_subkeys + 1
             message.save()
