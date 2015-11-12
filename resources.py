@@ -1,9 +1,12 @@
 import base64
 import enc
+import falcon
 import json
 import os
 import models as md
 import playhouse.shortcuts as ps
+
+images_directory = "./images/"
 
 
 class UsersResource:
@@ -118,7 +121,6 @@ class SendMessageResource:
         return (receivers, sender, thresh_number, filename, image)
 
     def save_image(self, img_data, filename):
-        images_directory = "./images/"
 
         os.makedirs(images_directory, exist_ok=True)
 
@@ -146,3 +148,96 @@ class SendMessageResource:
         for key, receiver in zip(keys, rcvrs):
             md.MessageToReceiver.create(message=msg, receiver=receiver,
                                         subkey=key)
+
+
+class GetMessagesResource:
+    """
+    Get all the pending messages corresponding to a user.
+    Input: A POST request with the userId in JSON.
+    {
+        "id": 12
+    }
+    Output: List of pending messages.
+    The *type* field indicates what data is inside the *data* field
+
+    [
+        {
+            "message_id": 3,
+            "sender_id": 2,
+            "type": "image",
+            "filename": "xyz.jpg",
+            "data": "base64imagedata"
+        },
+        {
+            "message_id": 5,
+            "sender_id": 1,
+            "type": "key",
+            "filename": "xyz.jpg",
+            "data": "subkey"
+        },
+    ]
+    """
+
+    def create_resp_msg(self, msg_id, sndr_id, data_type, filename, data):
+        """Return a dictionary with the response fields set accordingly."""
+
+        return {
+                    "message_id": msg_id,
+                    "sender_id": sndr_id,
+                    "data_type": data_type,
+                    "filename": filename,
+                    "data": data
+               }
+
+    def get_img(self, msg_id):
+        """
+        Return the image corresponding to a
+        message as a base64 encoded string.
+        """
+        path = os.path.join(images_directory + str(msg_id))
+        data = None
+
+        with open(path, "rb") as f:
+            data = f.read()
+
+        data = base64.b64encode(data)
+        return data.decode()
+
+    def on_post(self, req, resp):
+        json_dict = json.loads(req.stream.read().decode())
+        user_id = json_dict.get("id", 0)
+
+        user = md.User.get(md.User.id == user_id)
+
+        query = (md.MessageToReceiver
+                 .select(md.MessageToReceiver, md.Message)
+                 .join(md.Message)
+                 .where(md.MessageToReceiver.receiver == user))
+
+        resp_msgs = []
+        for msg_to_rcvr in query:
+            msg = msg_to_rcvr.message
+            if not msg.is_encrypted:
+                # Send message
+                resp_msgs.append(self.create_resp_msg(
+                    msg.id, msg.sender_id, "image",
+                    msg.filename, self.get_img(msg.id)))
+
+                # Delete the MessageToReceiver entry
+                msg_to_rcvr.delete_instance()
+
+            elif msg_to_rcvr.status == md.KeyStatus.not_sent:
+                # Send key
+                resp_msgs.append(self.create_resp_msg(
+                    msg.id, msg.sender_id, "key",
+                    msg.filename, msg_to_rcvr.subkey))
+
+                # Change status to key_sent
+                msg_to_rcvr.status = md.KeyStatus.sent
+                msg_to_rcvr.save()
+
+        # Send a 204 No Content status if there are no messages
+        if len(resp_msgs) == 0:
+            resp.status = falcon.HTTP_204
+        else:
+            resp.body = json.dumps(resp_msgs)

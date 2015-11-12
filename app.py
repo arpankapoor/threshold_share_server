@@ -9,7 +9,9 @@ api = application = falcon.API(middleware=[
 users = resources.UsersResource()
 user_reg = resources.UserRegisterationResource()
 send_msg = resources.SendMessageResource()
+get_msgs = resources.GetMessagesResource()
 
 api.add_route("/get_user_list", users)
 api.add_route("/register_user", user_reg)
 api.add_route("/send_message", send_msg)
+api.add_route("/get_messages", get_msgs)
