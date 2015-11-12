@@ -28,3 +28,15 @@ def encrypt_and_split(data, threshold_number, total):
     shares = shamir.split_secret(key.decode(), threshold_number, total)
 
     return (shares, encrypted_data)
+
+def decrypt(data, subkeys):
+	"""
+	Decrypt the data by recreating the original key with threshold_number
+	of subkeys.
+	Return the decrypted image.
+	"""
+	key = shamir.recover_secret(subkeys[0:])
+	f = Fernet(key.encode())
+	token = f.decrypt(base64.urlsafe_b64encode(data))
+
+	return token
