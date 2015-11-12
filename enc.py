@@ -15,6 +15,12 @@ def encrypt(data):
     return (key, token)
 
 
+def decrypt(data, key):
+    f = Fernet(key)
+    token = f.decrypt(base64.urlsafe_b64encode(data))
+    return token
+
+
 def encrypt_and_split(data, threshold_number, total):
     """
     Encrypt the data with a symmetric encryption scheme using a random
@@ -29,14 +35,15 @@ def encrypt_and_split(data, threshold_number, total):
 
     return (shares, encrypted_data)
 
-def decrypt(data, subkeys):
-	"""
-	Decrypt the data by recreating the original key with threshold_number
-	of subkeys.
-	Return the decrypted image.
-	"""
-	key = shamir.recover_secret(subkeys[0:])
-	f = Fernet(key.encode())
-	token = f.decrypt(base64.urlsafe_b64encode(data))
 
-	return token
+def combine_and_decrypt(data, subkeys):
+    """
+    Decrypt the data by recreating the original key with threshold number
+    of subkeys.
+
+    Return the decrypted data.
+    """
+    key = shamir.recover_secret(subkeys)
+    decrypted_data = decrypt(data, key.encode())
+
+    return decrypted_data
